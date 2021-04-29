@@ -1,0 +1,25 @@
+logging:
+  level:
+    root: debug
+    org:
+      springframework: info
+      springframework.web.filter.CommonsRequestLoggin: debug
+    com:
+      marketboro: debug
+      zaxxer:
+        hikari.HikariConfig: DEBUG
+        hikari: TRACE
+  file:
+    name: /var/log/ganache/application.log
+server:
+  port: 8520
+  servlet:
+    context-path: /
+spring:
+  application:
+    name: Ganache
+cloud:
+  aws:
+    credentials:
+      accessKey: ${MARKETBORO_SES_KEY_ID}
+      secretKey: ${MARKETBORO_SES_KEY_SECRET}
