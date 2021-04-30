@@ -2,6 +2,7 @@ package me.parkprin.ganache.document.service;
 
 import me.parkprin.ganache.aws.service.S3UploadComponent;
 import me.parkprin.ganache.document.model.Document;
+import me.parkprin.ganache.document.model.MenuType;
 import org.apache.poi.hssf.usermodel.HSSFCell;
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.security.MessageDigest;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Service
@@ -79,7 +81,7 @@ public class DocumentService {
     public Map<String, String> createExcelFileAfterS3Upload(List<Document> dummyDatas){
         Map<String, String> resultMap = new HashMap<>();
         HSSFWorkbook workbook = cretaeExcelInstance(dummyDatas);
-        String fileName = getSHA256("xxxxxx") +".xls";
+        String fileName = getSHA256(createFileNameByDate("Excel")) +".xls";
         File file  = new File("./"+ fileName);
         FileOutputStream fos  = null;
 
@@ -88,7 +90,7 @@ public class DocumentService {
             workbook.write(fos);
             resultMap.put("state", "success");
             resultMap.put("fileName", fileName);
-            s3UploadComponent.getAwsCredentials(fileName, file);
+            resultMap.put("s3FileURL", s3UploadComponent.getAwsCredentials(fileName, file, MenuType.Item));
         } catch (FileNotFoundException e) {
             e.printStackTrace();
             resultMap.put("error", e.getMessage());
@@ -107,7 +109,12 @@ public class DocumentService {
         return resultMap;
     }
 
-    public String getSHA256(String input){
+    private String createFileNameByDate(String defaultName){
+        SimpleDateFormat format = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+        return format.format(Calendar.getInstance(Locale.KOREAN).getTime()).toString() + "_" + defaultName;
+    }
+
+    private String getSHA256(String input){
 
         String toReturn = null;
         try {

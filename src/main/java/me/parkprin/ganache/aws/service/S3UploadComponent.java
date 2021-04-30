@@ -11,20 +11,26 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.PutObjectResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.parkprin.ganache.document.model.MenuType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.time.LocalDate;
 
 @Component @Slf4j
 @RequiredArgsConstructor
 public class S3UploadComponent {
-
+    // S3에 저장되는 경로
+    // {아마존 S3에서 사용하는 프로토콜}://{아마존 S3에서 사용하는 Host}{아마존 S3에서 사용하는 Path}
+    // 아마존 S3에서 사용하는 Path 규칙: /storage/{stage}/{헤싱한네이밍}.xls
     public static Regions clientRegion = Regions.AP_NORTHEAST_2;
     public static String bucketName = "marketbom2";
-    public static String folderPath = "dev/storage/";
+    public static String rootPath = "storage";
+    public static String stagePath = "dev";
 
     @Value("${cloud.aws.credentials.accessKey}")
     private String accessKey;
@@ -32,37 +38,48 @@ public class S3UploadComponent {
     @Value("${cloud.aws.credentials.secretKey}")
     private String secretKey;
 
-    public void getAwsCredentials(String fileObjKeyName, File file) {
-
+    public String getAwsCredentials(String fileObjKeyName, File file, MenuType menuType) {
         AWSCredentials credentials = new BasicAWSCredentials(accessKey, secretKey);
-
         AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
                 .withCredentials(new AWSStaticCredentialsProvider(credentials))
                 .withRegion(clientRegion)
                 .build();
-
-        s3Upload(folderPath+fileObjKeyName, s3Client, file);
+        return s3UploadReturnUploadFilePath(getForderPath(menuType)+fileObjKeyName, s3Client, file);
     }
 
-    private void s3Upload(String fileObjKeyName, AmazonS3 s3Client, File file) {
-        // Upload a text string as a new object.
-        // s3Client.putObject(bucketName, stringObjKeyName, "Uploaded String Object");
+    private String s3UploadReturnUploadFilePath(String fileObjKeyName, AmazonS3 s3Client, File file) {
+        String s3UploadFilePath = null;
         try {
-            // Upload a file as a new object with ContentType and title specified.
+
             PutObjectRequest request = new PutObjectRequest(bucketName, fileObjKeyName, file);
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentType("application/vnd.ms-excel; charset=UTF-8");
             request.setMetadata(metadata);
             request.withCannedAcl(CannedAccessControlList.PublicRead);
             s3Client.putObject(request);
+
+            s3UploadFilePath = getS3UploadFileUrl(s3Client, fileObjKeyName);
         } catch (AmazonServiceException e) {
-            // The call was transmitted successfully, but Amazon S3 couldn't process
-            // it, so it returned an error response.
             log.error("AmazonServiceException", e);
         } catch (SdkClientException e) {
-            // Amazon S3 couldn't be contacted for a response, or the client
-            // couldn't parse the response from Amazon S3.
             log.error("SdkClientException", e);
         }
+        return s3UploadFilePath;
+    }
+
+    private String getForderPath(MenuType menuType){
+        LocalDate localDate = LocalDate.now();
+        return rootPath+"/" + stagePath + "/" + menuType.getName() +
+                "/" + localDate.getYear() +
+                "/" + localDate.getMonth().getValue() +
+                "/" + localDate.getDayOfMonth() +
+                "/";
+    }
+
+    private String getS3UploadFileUrl(AmazonS3 s3Client, String fileObjKeyName){
+        String protocal = s3Client.getUrl(bucketName, fileObjKeyName).getProtocol();
+        String host = s3Client.getUrl(bucketName, fileObjKeyName).getHost();
+        String path = s3Client.getUrl(bucketName, fileObjKeyName).getPath();
+        return protocal+ "://"+host+path;
     }
 }
